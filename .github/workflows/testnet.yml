@@ -30,7 +30,7 @@ jobs:
         mkdir -p nodes/node1/data
         
         # Start YOUR exact node config
-        docker compose up -d rpc-node
+        docker compose up -d eth-node1
         
         # Health check with timeout
         timeout=300 bash << EOF
