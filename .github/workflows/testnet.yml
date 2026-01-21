@@ -77,3 +77,24 @@ jobs:
         curl -s -X POST -H "Content-Type: application/json" \
           --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
           http://localhost:8545 | jq .
+
+
+    - name: Debug + Start Node
+      run: |
+        echo "=== Directory contents ==="
+        ls -la *.yml *.yaml docker-compose*
+        
+        echo "=== Full docker-compose.yml ==="
+        cat docker-compose.yml
+        
+        echo "=== Docker Compose Services ==="
+        docker compose config --services
+        
+        echo "=== Create data dir ==="
+        mkdir -p nodes/node1/data
+        
+        echo "=== Start node ==="
+        docker compose up -d eth-node1
+
+
+            

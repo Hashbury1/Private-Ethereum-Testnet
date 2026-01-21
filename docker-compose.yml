@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  node1:
-    image: ethereum/client-go:v1.13.14
+  eth-node1:
     container_name: eth-node1
+    image: ethereum/client-go:v1.12.0
     ports:
       - "8545:8545"
       - "30303:30303"
