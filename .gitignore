@@ -1,0 +1,33 @@
+## system files 
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+## dependency directories
+node_modules/
+vendor//
+bower_components/   
+
+## build output
+dist/
+build/
+out/    
+
+## IDE and editor files
+.vscode/
+
+
+## OS generated files
+package-lock.json
+yarn.lock
+.pnpm-lock.yaml
+package.json
+
+.env
+.env.local
+.env.*.local
+
+passwords.txt
+secrets.json
+credentials.yml

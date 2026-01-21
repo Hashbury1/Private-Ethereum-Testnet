@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'geth-node1'
+    static_configs:
+      - targets: ['node1:6060']
+  
+  - job_name: 'geth-node2'
+    static_configs:
+      - targets: ['node2:6060']
+  
+  - job_name: 'geth-node3'
+    static_configs:
+      - targets: ['node3:6060']
