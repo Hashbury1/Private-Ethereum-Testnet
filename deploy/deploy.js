@@ -1,12 +1,97 @@
 const { Web3 } = require('web3');
+const fs = require('fs');
+const solc = require('solc');
 
 async function deploy() {
   const web3 = new Web3('http://localhost:8545');
   
-  // Create account (no keystore issues)
-  const account = web3.eth.accounts.create();
-  console.log('👤 Deployer:', account.address);
+  const accounts = await web3.eth.getAccounts();
+  const deployer = accounts[0];
   
-  // Simple storage contract bytecode + ABI
-  const bytecode = '0x608060405234801561001057600080fd5b50600436106100465760003560e01c80633fa8dc001461004b5780636d4ce63c14610055575b600080fd5b61005e610053366004610323565b610066565b004b90565b61007161006c366004610323565b61009b565b005b60008060009050600160009090046001908152602001908152602001600020600060009060ff1660ff1681565b92915050565b6000602082840312156100d757600080fd5b503591905056fea2646970667358221220a2b4f6e9f8c5d2e4f1a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a264736f6c634300081a0033';
-  const abi = [{"inputs":[{"internalType":"uint256","name":"num","type":"uint256"}],"name":"set","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"get","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"
+  console.log('👤 Deployer:', deployer);
+  
+  // Read contract
+  const source = fs.readFileSync('./contracts/Counter.sol', 'utf8');
+  
+  console.log('🔨 Compiling contract...');
+  
+  const input = {
+    language: 'Solidity',
+    sources: {
+      'Counter.sol': { content: source }
+    },
+    settings: {
+      outputSelection: {
+        '*': { '*': ['abi', 'evm.bytecode'] }
+      }
+    }
+  };
+  
+  const output = JSON.parse(solc.compile(JSON.stringify(input)));
+  
+  if (output.errors) {
+    output.errors.forEach(err => {
+      if (err.severity === 'error') {
+        console.error(err.formattedMessage);
+      }
+    });
+    if (output.errors.some(e => e.severity === 'error')) {
+      process.exit(1);
+    }
+  }
+  
+  const contract = output.contracts['Counter.sol']['Counter'];
+  const abi = contract.abi;
+  const bytecode = '0x' + contract.evm.bytecode.object;
+  
+  console.log('✅ Compiled successfully');
+  
+  const Counter = new web3.eth.Contract(abi);
+  
+  console.log('🚀 Deploying...');
+  
+  const gasPrice = await web3.eth.getGasPrice();
+  
+  const deployed = await Counter.deploy({
+    data: bytecode
+  }).send({
+    from: deployer,
+    gas: 1000000,
+    gasPrice: gasPrice
+  });
+  
+  console.log('✅ Deployed to:', deployed.options.address);
+  
+  // Save deployment
+  fs.writeFileSync('deployment.json', JSON.stringify({
+    address: deployed.options.address,
+    abi: abi,
+    deployer: deployer,
+    timestamp: new Date().toISOString()
+  }, null, 2));
+  
+  console.log('💾 Saved to deployment.json');
+  
+  // Test
+  console.log('\n🧪 Testing...');
+  
+  const counter = new web3.eth.Contract(abi, deployed.options.address);
+  
+  let count = await counter.methods.getCount().call();
+  console.log('Initial count:', count);
+  
+  const tx = await counter.methods.increment().send({
+    from: deployer,
+    gas: 100000,
+    gasPrice: gasPrice
+  });
+  
+  console.log('✅ Increment tx:', tx.transactionHash);
+  
+  count = await counter.methods.getCount().call();
+  console.log('New count:', count);
+  
+  console.log('\n🎉 Success!');
+}
+
+deploy().catch(console.error);

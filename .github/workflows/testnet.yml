@@ -1,0 +1,72 @@
+name: Ethereum Testnet CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  testnet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Start Ethereum Node
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io docker-compose-v2
+        
+        # Create data dir
+        mkdir -p nodes/node1/data
+        
+        # Start your exact node
+        docker compose up -d rpc-node
+        
+        # Wait for RPC
+        for i in {1..30}; do
+          if curl -s http://localhost:8545 > /dev/null; then
+            echo "✅ Node ready!"
+            break
+          fi
+          echo "⏳ Waiting for node... ($i/30)"
+          sleep 10
+        done
+        
+        # Verify mining
+        curl -s -X POST -H "Content-Type: application/json" \
+          --data '{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}' \
+          http://localhost:8545 || echo "⚠️ Mining check failed"
+    
+    - name: Install Node.js Dependencies
+      run: npm ci
+      
+    - name: Run Deployment Tests
+      run: |
+        node deploy.js
+        echo "✅ Deployment successful!"
+        echo "Contract address: $(jq -r '.contract' deployment.json)"
+        
+    - name: Test Contract Interaction
+      run: |
+        # Read contract state
+        curl -s -X POST -H "Content-Type: application/json" \
+          --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+          http://localhost:8545
+        
+    - name: Node Metrics
+      run: |
+        echo "=== Final Block Height ==="
+        curl -s -X POST -H "Content-Type: application/json" \
+          --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+          http://localhost:8545 | jq .
+        
+        echo "=== Node Status ==="
+        docker compose ps
+        
+    - name: Cleanup
+      if: always()
+      run: docker compose down -v

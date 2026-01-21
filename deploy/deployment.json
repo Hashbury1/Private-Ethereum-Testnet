@@ -1,6 +1,19 @@
 {
-  "address": "0x14F8Bddc6A549066c2993E72d490503335f693f4",
+  "address": "0x568cdf4203F71F0d8Dff91028f6E1b6A99C53b66",
   "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newValue",
+          "type": "uint256"
+        }
+      ],
+      "name": "ValueChanged",
+      "type": "event"
+    },
     {
       "inputs": [],
       "name": "getCount",
@@ -23,5 +36,5 @@
     }
   ],
   "deployer": "0x0a7B06F4dbEAa8B285a48EF6a96689150f10F2E9",
-  "timestamp": "2026-01-20T22:48:41.071Z"
+  "timestamp": "2026-01-21T12:57:43.621Z"
 }
