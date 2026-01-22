@@ -1,35 +1,20 @@
 services:
   eth-node1:
-    container_name: eth-node1
     image: ethereum/client-go:v1.12.0
     ports:
       - "8545:8545"
       - "30303:30303"
     volumes:
-      - ./nodes/node1:/root/.ethereum
-      - ./genesis.json:/genesis.json:ro
-      - ./password.txt:/root/.ethereum/password.txt:ro
+      - ./nodes/node1/data:/root/.ethereum # Fixed path
     command:
       - geth
       - --datadir=/root/.ethereum
-      - --genesis=/genesis.json
       - --networkid=1451
       - --nodiscover
       - --http
       - --http.addr=0.0.0.0
       - --http.port=8545
-      - --http.corsdomain=*
-      - --http.vhosts=*
-      - --http.api=eth,net,web3,personal,admin,clique
-      - --unlock=0x0a7b06f4dbeaa8b285a48ef6a96689150f10f2e9
-      - --password=/root/.ethereum/password.txt
-      - --allow-insecure-unlock
+      - --http.api=eth,net,web3,personal
       - --mine
-      - --miner.etherbase=0x0a7b06f4dbeaa8b285a48ef6a96689150f10f2e9
-    networks:
-      - eth-network
-    restart: unless-stopped
-
-networks:
-  eth-network:
-    driver: bridge
+      - --miner.etherbase=0x0000000000000000000000000000000000000000 # No unlock needed
+    restart: "no" # Disable restart loop for debugging
