@@ -31,3 +31,5 @@ package.json
 passwords.txt
 secrets.json
 credentials.yml
+
+bin/

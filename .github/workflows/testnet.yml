@@ -11,90 +11,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     
-    services:
-      # Use Docker service (already pre-installed on GitHub runners)
-      docker:
-        image: docker:dind
-        options: --privileged
-    
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      
-    - name: Start Ethereum Node
+    
+    - name: Start Node + Deploy
+      shell: bash
       run: |
-        # GitHub Actions ubuntu-latest has Docker pre-installed
-        docker compose version
-        
-        # Create data dir
         mkdir -p nodes/node1/data
-        
-        # Start YOUR exact node config
-        docker compose up -d eth-node1
-        
-        # Health check with timeout
-        timeout=300 bash << EOF
-          for i in {1..30}; do
-            if curl -s -X POST -H "Content-Type: application/json" \
-              --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' \
-              http://localhost:8545 | grep -q "2.0"; then
-              echo "✅ Node ready after ${i*10}s!"
-              break
-            fi
-            echo "⏳ Waiting for node... ($i/30)"
-            sleep 10
-          done
-        EOF
-        
-        echo "✅ Mining status:"
-        curl -s -X POST -H "Content-Type: application/json" \
-          --data '{"jsonrpc":"2.0","method":"eth_mining","params":[],"id":1}' \
-          http://localhost:8545
+        docker compose up -d
+        i=1
+        while [ "$i" -le 30 ]; do
+          if docker compose exec eth-node1 curl -s -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' \
+            http://localhost:8545 | grep -q "2.0"; then
+            echo "✅ Node ready after $((i * 10))s!"
+            break
+          fi
+          echo "⏳ Waiting for node... ($i/30)"
+          sleep 10
+          i=$((i + 1))
+        done
+        docker compose exec eth-node1 sh -c "cd /workspace && npm install && node deploy.js"
     
-    - name: Verify Node Operations
+    - name: Verify Results
       run: |
-        echo "=== Block Height ==="
-        curl -s -X POST -H "Content-Type: application/json" \
-          --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-          http://localhost:8545 | jq .
-          
-        echo "=== Chain ID ==="
-        curl -s -X POST -H "Content-Type: application/json" \
-          --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' \
-          http://localhost:8545 | jq .
-    
-    - name: Run Your Deployment
-      run: |
-        npm ci
-        node deploy.js || echo "⚠️ Deploy failed (expected in CI)"
-        echo "✅ Workflow complete - node produced blocks!"
-    
-    - name: Final Node Status
-      run: |
-        echo "=== Container Status ==="
-        docker compose ps
-        echo "=== Final Block ==="
-        curl -s -X POST -H "Content-Type: application/json" \
-          --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-          http://localhost:8545 | jq .
-
-
-    - name: Debug + Start Node
-      run: |
-        echo "=== Directory contents ==="
-        ls -la *.yml *.yaml docker-compose*
-        
-        echo "=== Full docker-compose.yml ==="
-        cat docker-compose.yml
-        
-        echo "=== Docker Compose Services ==="
-        docker compose config --services
-        
-        echo "=== Create data dir ==="
-        mkdir -p nodes/node1/data
-        
-        echo "=== Start node ==="
-        docker compose up -d eth-node1
-
-
-            
+        docker compose logs eth-node1 --tail=10
+        echo "✅ Workflow complete!"
