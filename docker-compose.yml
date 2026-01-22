@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   eth-node1:
     container_name: eth-node1
@@ -12,7 +10,9 @@ services:
       - ./genesis.json:/genesis.json:ro
       - ./password.txt:/root/.ethereum/password.txt:ro
     command:
+      - geth
       - --datadir=/root/.ethereum
+      - --genesis=/genesis.json
       - --networkid=1451
       - --nodiscover
       - --http
