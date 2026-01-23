@@ -7,4 +7,4 @@ services:
       - ./nodes/node1/data:/root/.ethereum
     command:
       # ← NO 'geth' here - just flags
-      --datadir=/root/.ethereum --networkid=1451 --nodiscover --http --http.addr=0.0.0.0 --http.port=8545 --http.api=eth,net,web3,personal --mine --miner.etherbase=0x0000000000000000000000000000000000000000
+      --datadir=/root/.ethereum --networkid=1451 --nodiscover --http --http.addr=0.0.0.0 --http.port=8545 --http.api=eth,net,web3,personal --mine --miner.etherbase=0xE12dBa91E58F1481Ead0Ce7545Ca85f63C3DB81a
