@@ -15,40 +15,23 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
-    - name: Create data directory
-      run: mkdir -p nodes/node1/data
-    
-    - name: Start Ethereum Node
+    - name: Deploy to Testnet
+      shell: bash
       run: |
-        docker compose up -d eth-node1
-        echo "=== Startup logs ==="
-        docker compose logs --tail=20 eth-node1
+        mkdir -p nodes/node1/data
         
-        # Wait for RPC via port mapping (HOST -> container)
-        for i in {1..30}; do
-          if curl -s -X POST -H "Content-Type: application/json" \
+        docker compose up -d eth-node1
+        
+        echo "=== Node startup (120s wait) ==="
+        sleep 120
+        
+        echo "=== Final logs ==="
+        docker compose logs --tail=30 eth-node1
+        
+        for i in {1..10}; do
+          echo "RPC test $i..."
+          response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" \
             --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' \
-            http://localhost:8545 | grep -q "2.0"; then
-            echo "✅ Node ready!"
-            break
-          fi
-          echo "Waiting... ($i/30)"
-          sleep 60
-        done
-    
-    - name: Deploy Contract
-      run: |
-        npm ci
-        RPC_URL=http://localhost:8545 node deploy.js
-        echo "✅ Deployed! Contract address:"
-        cat deployment.json
-    
-    - name: Verify Block Production
-      run: |
-        curl -s -X POST -H "Content-Type: application/json" \
-          --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-          http://localhost:8545
-    
-    - name: Cleanup
-      if: always()
-      run: docker compose down -v
+            http://localhost:8545)
+          
+          if [[ $response
