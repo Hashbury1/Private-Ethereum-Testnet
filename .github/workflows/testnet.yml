@@ -22,7 +22,7 @@ jobs:
         
         docker compose up -d eth-node1
         
-        sleep 30
+        sleep 60
         
         if ! docker ps --filter "name=eth-node1" --format '{{.Names}}' | grep -q eth-node1; then
           echo "❌ Container not running"
