@@ -1,4 +1,5 @@
 name: Ethereum Testnet CI
+
 on:
   push:
     branches: [ main ]
@@ -12,26 +13,115 @@ jobs:
     timeout-minutes: 20
     
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    
-    - name: Deploy to Testnet
-      shell: bash
-      run: |
-        mkdir -p nodes/node1/data
-        
-        docker compose up -d eth-node1
-        
-        echo "=== Node startup (120s wait) ==="
-        sleep 120
-        
-        echo "=== Final logs ==="
-        docker compose logs --tail=30 eth-node1
-        
-        for i in {1..10}; do
-          echo "RPC test $i..."
-          response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" \
-            --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' \
-            http://localhost:8545)
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up permissions
+        run: |
+          sudo chown -R $USER:$USER nodes/
+          chmod -R 755 nodes/
+      
+      - name: Initialize genesis
+        run: |
+          if [ ! -d "nodes/node1/geth" ]; then
+            echo "Initializing genesis..."
+            docker run --rm \
+              -v $(pwd)/genesis.json:/genesis.json \
+              -v $(pwd)/nodes/node1:/root/.ethereum \
+              ethereum/client-go:v1.13.14 \
+              init /genesis.json
+          else
+            echo "Genesis already initialized"
+          fi
+      
+      - name: Start Ethereum node
+        run: |
+          docker compose up -d
+          echo "✅ Docker Compose started"
+      
+      - name: Wait for node to be ready
+        run: |
+          echo "⏳ Waiting for Ethereum node..."
           
-          if [[ $response
+          max_attempts=30
+          attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            
+            response=$(curl -s -X POST -H "Content-Type: application/json" \
+              --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+              http://localhost:8545 2>&1)
+            
+            if echo "$response" | grep -q "result"; then
+              echo "✅ Node ready after $((attempt * 10)) seconds!"
+              echo "Response: $response"
+              break
+            fi
+            
+            if [ $attempt -eq $max_attempts ]; then
+              echo "❌ Node failed to start after $((max_attempts * 10)) seconds"
+              docker compose logs eth-node1
+              exit 1
+            fi
+            
+            echo "⏳ Attempt $attempt/$max_attempts..."
+            sleep 10
+          done
+      
+      - name: Check node status
+        run: |
+          echo "=== Container Status ==="
+          docker compose ps
+          
+          echo ""
+          echo "=== Node Logs ==="
+          docker compose logs --tail 50 eth-node1
+          
+          echo ""
+          echo "=== RPC Test ==="
+          curl -X POST http://localhost:8545 \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+      
+      - name: Install Node.js dependencies
+        run: |
+          cd deploy
+          npm install web3 solc@0.8.19
+      
+      - name: Deploy contract
+        run: |
+          cd deploy
+          node deploy.js
+      
+      - name: Verify deployment
+        run: |
+          if [ -f "deploy/deployment.json" ]; then
+            echo "✅ Contract deployed successfully!"
+            cat deploy/deployment.json
+          else
+            echo "❌ Deployment failed"
+            exit 1
+          fi
+      
+      - name: Upload deployment artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-deployment
+          path: deploy/deployment.json
+      
+      - name: Cleanup on failure
+        if: failure()
+        run: |
+          echo "=== Full Node Logs ==="
+          docker compose logs eth-node1
+          
+          echo ""
+          echo "=== Container Inspect ==="
+          docker inspect $(docker compose ps -q eth-node1)
+      
+      - name: Stop containers
+        if: always()
+        run: |
+          docker compose down
