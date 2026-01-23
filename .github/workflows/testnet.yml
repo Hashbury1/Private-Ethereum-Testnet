@@ -15,26 +15,38 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
-    - name: Start Node + Deploy
+    - name: Deploy to Testnet
       shell: bash
       run: |
         mkdir -p nodes/node1/data
-        docker compose up -d
-        i=1
-        while [ "$i" -le 30 ]; do
-          if docker compose exec eth-node1 curl -s -X POST -H "Content-Type: application/json" \
+        
+        docker compose up -d eth-node1
+        
+        sleep 30
+        
+        if ! docker ps --filter "name=eth-node1" --format '{{.Names}}' | grep -q eth-node1; then
+          echo "❌ Container not running"
+          docker compose logs eth-node1
+          exit 1
+        fi
+        
+        for ((i=1; i<=20; i++)); do
+          if curl -s -X POST -H "Content-Type: application/json" \
             --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' \
             http://localhost:8545 | grep -q "2.0"; then
-            echo "✅ Node ready after $((i * 10))s!"
+            echo "✅ RPC ready!"
             break
           fi
-          echo "⏳ Waiting for node... ($i/30)"
-          sleep 10
-          i=$((i + 1))
+          echo "⏳ RPC startup ($i/20)"
+          sleep 5
         done
-        docker compose exec eth-node1 sh -c "cd /workspace && npm install && node deploy.js"
+        
+        npm ci
+        RPC_URL="http://localhost:8545" node deploy.js
+        
+        echo "✅ SUCCESS - Contract deployed!"
+        cat deployment.json
     
-    - name: Verify Results
-      run: |
-        docker compose logs eth-node1 --tail=10
-        echo "✅ Workflow complete!"
+    - name: Cleanup
+      if: always()
+      run: docker compose down -v
