@@ -143,7 +143,7 @@ geth attach http://localhost:8545
 ### Nodes not connecting
 - Check `static-nodes.json` exists in each node directory
 - Verify Docker network connectivity
-- Check firewall rules
+- Check firewall rules or ports. 
 
 ### Mining not starting
 - Verify validator address in extradata
@@ -152,13 +152,15 @@ geth attach http://localhost:8545
 
 ## Security Notes
 
-⚠️ This is for development/testing only:
+This is for development/testing only:
+
 - Private keys stored in plaintext
 - RPC endpoints exposed without auth
 - `--allow-insecure-unlock` enabled
 
 For production use:
-- Implement proper key management (Vault, HSM)
+
+- Implement proper key management (Vault, AWS secrets)
 - Add authentication to RPC endpoints
 - Use TLS for all communications
 - Implement network segmentation
