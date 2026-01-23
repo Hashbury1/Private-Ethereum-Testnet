@@ -6,13 +6,5 @@ services:
     volumes:
       - ./nodes/node1/data:/root/.ethereum
     command:
-      - geth
-      - --datadir=/root/.ethereum
-      - --networkid=1451
-      - --nodiscover
-      - --http
-      - --http.addr=0.0.0.0
-      - --http.port=8545
-      - --http.api=eth,net,web3,personal
-      - --mine
-      - --miner.etherbase=0x0000000000000000000000000000000000000000
+      # ← NO 'geth' here - just flags
+      --datadir=/root/.ethereum --networkid=1451 --nodiscover --http --http.addr=0.0.0.0 --http.port=8545 --http.api=eth,net,web3,personal --mine --miner.etherbase=0x0000000000000000000000000000000000000000
