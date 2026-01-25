@@ -22,7 +22,8 @@
         "blobSchedule": {
             "cancun": {
                 "target": 3,
-                "max": 6
+                "max": 6,
+                "updateFraction": 3338477
             }
         }
     },
