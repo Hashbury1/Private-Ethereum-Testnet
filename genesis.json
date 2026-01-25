@@ -16,8 +16,15 @@
         "mergeNetsplitBlock": 0,
         "shanghaiTime": 0,
         "cancunTime": 0,
+        "pragueTime": 0,
         "terminalTotalDifficulty": 0,
-        "terminalTotalDifficultyPassed": true
+        "terminalTotalDifficultyPassed": true,
+        "blobSchedule": {
+            "cancun": {
+                "target": 3,
+                "max": 6
+            }
+        }
     },
     "alloc": {
         "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": {
