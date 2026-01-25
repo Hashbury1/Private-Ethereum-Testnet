@@ -14,9 +14,9 @@
         "arrowGlacierBlock": 0,
         "grayGlacierBlock": 0,
         "mergeNetsplitBlock": 0,
-        "shanghaiTime": 1735689600, // Jan 1, 2025 00:00 UTC
-        "cancunTime": 1735776000, // Jan 2, 2025 00:00 UTC  
-        "pragueTime": 1743465600, // Apr 1, 2025 00:00 UTC
+        "shanghaiTime": 1735689600,
+        "cancunTime": 1735776000,
+        "pragueTime": 1743465600,
         "terminalTotalDifficulty": 0,
         "terminalTotalDifficultyPassed": true,
         "blobSchedule": {
@@ -27,21 +27,4 @@
             }
         }
     }
-},
-"alloc": {
-    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": {
-        "balance": "0x200000000000000000000000000000000000000000000000000000000000000"
-    }
-},
-"nonce": "0x0000000000000042",
-"timestamp": "0x0",
-"extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
-"gasLimit": "0x1fffffffffffff",
-"difficulty": "0x0",
-"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-"coinbase": "0x0000000000000000000000000000000000000000",
-"number": "0x0",
-"gasUsed": "0x0",
-"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-"baseFeePerGas": "0x7"
 }
