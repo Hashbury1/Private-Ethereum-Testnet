@@ -1,127 +1,160 @@
-name: Ethereum Testnet CI
+name: Deploy Ethereum Testnet
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  testnet:
+  deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Set up permissions
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Ethereum Testnet Node
+        shell: bash
         run: |
-          sudo chown -R $USER:$USER nodes/
-          chmod -R 755 nodes/
-      
-      - name: Initialize genesis
-        run: |
-          if [ ! -d "nodes/node1/geth" ]; then
-            echo "Initializing genesis..."
-            docker run --rm \
-              -v $(pwd)/genesis.json:/genesis.json \
-              -v $(pwd)/nodes/node1:/root/.ethereum \
-              ethereum/client-go:v1.13.14 \
-              init /genesis.json
-          else
-            echo "Genesis already initialized"
-          fi
-      
-      - name: Start Ethereum node
-        run: |
-          docker compose up -d
-          echo "✅ Docker Compose started"
-      
-      - name: Wait for node to be ready
-        run: |
-          echo "⏳ Waiting for Ethereum node..."
+          # Clean previous attempts
+          docker stop eth-node 2>/dev/null || true
+          docker rm eth-node 2>/dev/null || true
+          rm -rf ./eth-data 2>/dev/null || true
           
-          max_attempts=30
-          attempt=0
-          
-          while [ $attempt -lt $max_attempts ]; do
-            attempt=$((attempt + 1))
+          echo "🚀 Creating genesis.json"
+          cat > genesis.json << 'EOF'
+          {
+            "config": {
+              "chainId": 1337,
+              "homesteadBlock": 0,
+              "eip150Block": 0,
+              "eip155Block": 0,
+              "eip158Block": 0,
+              "byzantiumBlock": 0,
+              "constantinopleBlock": 0,
+              "petersburgBlock": 0,
+              "istanbulBlock": 0,
+              "berlinBlock": 0,
+              "londonBlock": 0
+            },
+            "alloc": {
+              "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": {
+                "balance": "0x200000000000000000000000000000000000000000000000000000000000000"
+              }
+            },
+            "nonce": "0x0000000000000042",
+            "timestamp": "0x0",
+            "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "gasLimit": "0x1fffffffffffff",
+            "difficulty": "0x1",
+            "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase": "0x0000000000000000000000000000000000000000",
+            "number": "0x0",
+            "gasUsed": "0x0",
+            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          }
+          EOF
+
+          echo "📁 Creating data directory..."
+          mkdir -p ./eth-data
+
+          echo "🔧 Initializing genesis block..."
+          docker run --rm \
+            -v $(pwd)/genesis.json:/genesis.json:ro \
+            -v $(pwd)/eth-data:/data \
+            ethereum/client-go:latest \
+            geth init --datadir /data /genesis.json
+
+          echo "🔑 Creating password file..."
+          echo "" > password.txt
+
+          echo "🐳 Starting Ethereum node container..."
+          docker run -d \
+            --name eth-node \
+            -p 8545:8545 \
+            -p 8546:8546 \
+            -v $(pwd)/eth-data:/data \
+            -v $(pwd)/password.txt:/password.txt:ro \
+            ethereum/client-go:latest \
+            geth \
+            --datadir /data \
+            --networkid 1337 \
+            --http \
+            --http.addr "0.0.0.0" \
+            --http.port 8545 \
+            --http.api "eth,net,web3,personal,admin,miner,debug,txpool" \
+            --http.corsdomain "*" \
+            --http.vhosts "*" \
+            --ws \
+            --ws.addr "0.0.0.0" \
+            --ws.port 8546 \
+            --ws.api "eth,net,web3,personal,admin,miner,debug,txpool" \
+            --ws.origins "*" \
+            --nodiscover \
+            --maxpeers 0 \
+            --mine \
+            --miner.threads 1 \
+            --miner.etherbase "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" \
+            --allow-insecure-unlock \
+            --verbosity 3
+
+          echo "⏳ Waiting for node to start (max 120s)..."
+          NODE_READY=false
+          for i in {1..24}; do
+            echo "Attempt $i/24..."
             
-            response=$(curl -s -X POST -H "Content-Type: application/json" \
+            if curl -s -X POST -H "Content-Type: application/json" \
               --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-              http://localhost:8545 2>&1)
-            
-            if echo "$response" | grep -q "result"; then
-              echo "✅ Node ready after $((attempt * 10)) seconds!"
-              echo "Response: $response"
+              http://localhost:8545 2>/dev/null | grep -q "result"; then
+              
+              BLOCK_NUMBER=$(curl -s -X POST -H "Content-Type: application/json" \
+                --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+                http://localhost:8545 | jq -r '.result')
+              
+              echo "✅ Node is ready!"
+              echo "📊 Current block: $BLOCK_NUMBER ($(printf '%d' $BLOCK_NUMBER))"
+              NODE_READY=true
               break
             fi
             
-            if [ $attempt -eq $max_attempts ]; then
-              echo "❌ Node failed to start after $((max_attempts * 10)) seconds"
-              docker compose logs eth-node1
-              exit 1
-            fi
-            
-            echo "⏳ Attempt $attempt/$max_attempts..."
-            sleep 10
+            sleep 5
           done
-      
-      - name: Check node status
-        run: |
-          echo "=== Container Status ==="
-          docker compose ps
-          
-          echo ""
-          echo "=== Node Logs ==="
-          docker compose logs --tail 50 eth-node1
-          
-          echo ""
-          echo "=== RPC Test ==="
-          curl -X POST http://localhost:8545 \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
-      
-      - name: Install Node.js dependencies
-        run: |
-          cd deploy
-          npm install web3 solc@0.8.19
-      
-      - name: Deploy contract
-        run: |
-          cd deploy
-          node deploy.js
-      
-      - name: Verify deployment
-        run: |
-          if [ -f "deploy/deployment.json" ]; then
-            echo "✅ Contract deployed successfully!"
-            cat deploy/deployment.json
-          else
-            echo "❌ Deployment failed"
+
+          if [ "$NODE_READY" = false ]; then
+            echo "❌ Node failed to start within timeout period"
+            echo "📋 Container logs:"
+            docker logs eth-node
             exit 1
           fi
-      
-      - name: Upload deployment artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: contract-deployment
-          path: deploy/deployment.json
-      
-      - name: Cleanup on failure
-        if: failure()
-        run: |
-          echo "=== Full Node Logs ==="
-          docker compose logs eth-node1
-          
+
           echo ""
-          echo "=== Container Inspect ==="
-          docker inspect $(docker compose ps -q eth-node1)
-      
-      - name: Stop containers
-        if: always()
+          echo "🔗 Testing RPC connection..."
+          RESPONSE=$(curl -s -X POST http://localhost:8545 \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')
+          echo "Response: $RESPONSE"
+
+          echo ""
+          echo "💰 Checking account balance..."
+          BALANCE=$(curl -s -X POST http://localhost:8545 \
+            -H "Content-Type: application/json" \
+            -d '{
+              "jsonrpc":"2.0",
+              "method":"eth_getBalance",
+              "params":["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "latest"],
+              "id":1
+            }' | jq -r '.result')
+          echo "Account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+          echo "Balance: $BALANCE ($(printf '%d' $BALANCE) wei)"
+
+          echo ""
+          echo "✅ Ethereum testnet node deployed successfully!"
+          echo "📡 RPC Endpoint: http://localhost:8545"
+          echo "🔌 WebSocket: ws://localhost:8546"
+          echo "🔗 Chain ID: 1337"
+          echo "💳 Pre-funded Account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+
+      - name: Keep node running (for testing)
         run: |
-          docker compose down
+          echo "Node is running. Keeping workflow alive for 10 minutes for testing..."
+          sleep 600

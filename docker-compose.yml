@@ -1,10 +1,69 @@
 services:
-  eth-node1:
-    image: ethereum/client-go:v1.12.0
+  eth-init:
+    image: ethereum/client-go:latest
+    container_name: eth-init
+    volumes:
+      - ./genesis.json:/genesis.json:ro
+      - eth-data:/data
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        if [ ! -d /data/geth ]; then
+          echo "Initializing genesis block..."
+          geth init --datadir /data /genesis.json
+          echo "Genesis block initialized successfully"
+        else
+          echo "Genesis block already initialized, skipping..."
+        fi
+    networks:
+      - eth-network
+
+  eth-node:
+    image: ethereum/client-go:latest
+    container_name: eth-node
+    depends_on:
+      eth-init:
+        condition: service_completed_successfully
     ports:
       - "8545:8545"
+      - "8546:8546"
     volumes:
-      - ./nodes/node1/data:/root/.ethereum
+      - eth-data:/data
     command:
-      # ← NO 'geth' here - just flags
-      --datadir=/root/.ethereum --networkid=1451 --nodiscover --http --http.addr=0.0.0.0 --http.port=8545 --http.api=eth,net,web3,personal --mine --miner.etherbase=0xE12dBa91E58F1481Ead0Ce7545Ca85f63C3DB81a
+      - --dev
+      - --dev.period=1
+      - --datadir=/data
+      - --networkid=1337
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,personal,admin,miner,debug,txpool
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,personal,admin,miner,debug,txpool
+      - --ws.origins=*
+      - --nodiscover
+      - --maxpeers=0
+      - --allow-insecure-unlock
+      - --gcmode=archive
+      - --verbosity=3
+    healthcheck:
+      test: [ "CMD-SHELL", "geth attach --exec 'eth.blockNumber' http://localhost:8545 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - eth-network
+
+volumes:
+  eth-data:
+    driver: local
+
+networks:
+  eth-network:
+    driver: bridge
