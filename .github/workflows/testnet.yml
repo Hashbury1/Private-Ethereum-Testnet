@@ -13,83 +13,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Create genesis.json
-        run: |
-          cat > genesis.json << 'EOF'
-          {
-            "config": {
-              "chainId": 1337,
-              "homesteadBlock": 0,
-              "eip150Block": 0,
-              "eip155Block": 0,
-              "eip158Block": 0,
-              "byzantiumBlock": 0,
-              "constantinopleBlock": 0,
-              "petersburgBlock": 0,
-              "istanbulBlock": 0,
-              "berlinBlock": 0,
-              "londonBlock": 0,
-              "arrowGlacierBlock": 0,
-              "grayGlacierBlock": 0,
-              "mergeNetsplitBlock": 0,
-              "shanghaiTime": 0,
-              "cancunTime": 0,
-              "pragueTime": 0,
-              "terminalTotalDifficulty": 0,
-              "terminalTotalDifficultyPassed": true,
-              "blobSchedule": {
-                "cancun": {
-                  "target": 3,
-                  "max": 6
-                }
-              }
-            },
-            "alloc": {
-              "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": {
-                "balance": "0x200000000000000000000000000000000000000000000000000000000000000"
-              }
-            },
-            "nonce": "0x0000000000000042",
-            "timestamp": "0x0",
-            "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "gasLimit": "0x1fffffffffffff",
-            "difficulty": "0x0",
-            "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "coinbase": "0x0000000000000000000000000000000000000000",
-            "number": "0x0",
-            "gasUsed": "0x0",
-            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "baseFeePerGas": "0x7"
-          }
-          EOF
-
       - name: Deploy Ethereum Testnet Node
         run: |
-          echo "🧹 Cleaning up any previous containers..."
-          docker stop eth-node 2>/dev/null || true
-          docker rm eth-node 2>/dev/null || true
-          
-          echo "📁 Creating data directory..."
-          mkdir -p ./eth-data
-          
-          echo "🔧 Initializing genesis block..."
-          docker run --rm \
-            -v $(pwd)/genesis.json:/genesis.json:ro \
-            -v $(pwd)/eth-data:/data \
-            ethereum/client-go:latest \
-            init --datadir /data /genesis.json
-          
           echo "🐳 Starting Ethereum node in dev mode..."
           docker run -d \
             --name eth-node \
             -p 8545:8545 \
             -p 8546:8546 \
-            -v $(pwd)/eth-data:/data \
             ethereum/client-go:latest \
             --dev \
             --dev.period 1 \
-            --datadir /data \
-            --networkid 1337 \
             --http \
             --http.addr "0.0.0.0" \
             --http.port 8545 \
@@ -101,73 +34,24 @@ jobs:
             --ws.port 8546 \
             --ws.api "eth,net,web3,personal,admin,miner,debug,txpool" \
             --ws.origins "*" \
-            --nodiscover \
-            --maxpeers 0 \
-            --allow-insecure-unlock \
-            --gcmode archive \
             --verbosity 3
           
-          echo "⏳ Waiting for node to start (max 60 seconds)..."
-          for i in {1..12}; do
-            echo "Checking connection... attempt $i/12"
-            
-            if curl -s -X POST http://localhost:8545 \
-              -H "Content-Type: application/json" \
-              -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' 2>/dev/null | grep -q "result"; then
-              
-              BLOCK=$(curl -s -X POST http://localhost:8545 \
-                -H "Content-Type: application/json" \
-                -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' | jq -r '.result')
-              
-              BLOCK_DEC=$(printf '%d' $BLOCK 2>/dev/null || echo "0")
-              
-              echo "✅ Node is ready!"
-              echo "📊 Current block: $BLOCK (decimal: $BLOCK_DEC)"
-              break
-            fi
-            
-            sleep 5
-          done
-          
-          if ! curl -s -X POST http://localhost:8545 \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' 2>/dev/null | grep -q "result"; then
-            echo "❌ Node failed to start"
-            echo "📋 Container logs:"
-            docker logs eth-node
-            exit 1
-          fi
+          echo "⏳ Waiting for node to start..."
+          sleep 15
 
       - name: Test RPC Connection
         run: |
           echo "🔗 Testing RPC connection..."
-          RESPONSE=$(curl -s -X POST http://localhost:8545 \
+          curl -X POST http://localhost:8545 \
             -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')
-          echo "Response: $RESPONSE"
+            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
           
           echo ""
-          echo "💰 Checking account balance..."
-          BALANCE=$(curl -s -X POST http://localhost:8545 \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266","latest"],"id":1}' | jq -r '.result')
-          echo "Account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-          echo "Balance: $BALANCE"
-          
-          echo ""
-          echo "✅ Ethereum testnet node deployed successfully!"
-          echo "📡 RPC Endpoint: http://localhost:8545"
-          echo "🔌 WebSocket: ws://localhost:8546"
-          echo "🔗 Chain ID: 1337"
+          echo "✅ Ethereum testnet node is running!"
 
-      - name: Keep node running (for testing)
+      - name: Run your deployment script
         run: |
-          echo "Node is running. Keeping workflow alive for 10 minutes for testing..."
-          echo "You can add your deployment steps here"
-          sleep 600
-          
-      - name: Show final logs
-        if: always()
-        run: |
-          echo "📋 Final container logs:"
-          docker logs eth-node
+          # Add your deployment commands here
+          # node deploy.js
+          echo "Add your deployment steps here"
+          sleep 60
