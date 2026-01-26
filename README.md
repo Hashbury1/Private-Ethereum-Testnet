@@ -2,7 +2,7 @@
 
 A simple, reliable Ethereum testnet deployment using Geth in dev mode for development and testing purposes.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -50,7 +50,7 @@ The repository includes a GitHub Actions workflow that automatically deploys the
 
 **Workflow file:** `.github/workflows/deploy-eth-node.yml`
 
-To trigger manually:
+To trigger manually or simply push from CLI:
 1. Go to your repository on GitHub
 2. Click "Actions" tab
 3. Select "Deploy Ethereum Testnet"
@@ -259,54 +259,6 @@ docker system prune -a --volumes -f
 # Start fresh
 docker run -d --name eth-node -p 8545:8545 -p 8546:8546 ethereum/client-go:latest --dev --dev.period 1 --http --http.addr "0.0.0.0" --http.port 8545 --http.api "eth,net,web3,personal,admin,miner,debug,txpool" --http.corsdomain "*" --http.vhosts "*" --ws --ws.addr "0.0.0.0" --ws.port 8546 --ws.api "eth,net,web3,personal,admin,miner,debug,txpool" --ws.origins "*"
 ```
-
-## 📚 Additional Resources
-
-### Connecting from JavaScript
-
-```javascript
-const Web3 = require('web3');
-const web3 = new Web3('http://localhost:8545');
-
-async function test() {
-  const blockNumber = await web3.eth.getBlockNumber();
-  console.log('Current block:', blockNumber);
-  
-  const accounts = await web3.eth.getAccounts();
-  console.log('Accounts:', accounts);
-}
-
-test();
-```
-
-### Using ethers.js
-
-```javascript
-const { ethers } = require('ethers');
-
-const provider = new ethers.JsonRpcProvider('http://localhost:8545');
-
-async function test() {
-  const blockNumber = await provider.getBlockNumber();
-  console.log('Current block:', blockNumber);
-  
-  const balance = await provider.getBalance('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
-  console.log('Balance:', ethers.formatEther(balance), 'ETH');
-}
-
-test();
-```
-
-### Connecting from MetaMask
-
-1. Open MetaMask
-2. Click network dropdown → "Add Network"
-3. Enter details:
-   - **Network Name:** Local Testnet
-   - **RPC URL:** `http://localhost:8545`
-   - **Chain ID:** `1337`
-   - **Currency Symbol:** ETH
-4. Save and switch to the network
 
 ## ⚙️ Advanced Configuration
 
