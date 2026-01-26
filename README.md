@@ -145,6 +145,7 @@ geth attach http://localhost:8545
 - Verify Docker network connectivity
 - Check firewall rules or ports. 
 
+
 ### Mining not starting
 - Verify validator address in extradata
 - Check unlock password is correct
@@ -164,5 +165,6 @@ For production use:
 - Add authentication to RPC endpoints
 - Use TLS for all communications
 - Implement network segmentation
+* Not using Genesis.json will help out 
 ```
 
